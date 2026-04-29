@@ -6,7 +6,7 @@ import os
 
 # ⚠️ BAD PRACTICE - Secret hardcoded in code
 API_KEY = "ghp_1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r"
-AWS_ACCESS_KEY_ID = "AKIAYVP4CIIWF3XOKKXP"
+AWS_ACCESS_KEY_ID = "AKIAYVP4CIIWF3XOKKXP"chain-benchch
 
 
 def hello_ghost():
