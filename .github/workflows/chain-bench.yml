@@ -1,0 +1,62 @@
+name: Chain Bench - Supply Chain Security Audit
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main"]
+  schedule:
+    # Run every Monday at 08:00 UTC for regular compliance checks
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  chain-bench-audit:
+    runs-on: ubuntu-latest
+    name: CIS Software Supply Chain Benchmark Audit
+
+    steps:
+      - name: Run Chain Bench
+        id: chain-bench
+        uses: aquasecurity/chain-bench-action@v1.0.0
+        with:
+          # Full URL of the repository to audit
+          repository-url: ${{ github.server_url }}/${{ github.repository }}
+          # Use CHAIN_BENCH_TOKEN (PAT) for full org-level checks.
+          # Required token scopes: repo (all), read:repo_hook, admin:org_hook, read:org
+          # Fallback to GITHUB_TOKEN if PAT not set (some org-level checks will be skipped)
+          github-token: ${{ secrets.CHAIN_BENCH_TOKEN || secrets.GITHUB_TOKEN }}
+          scm-platform: github
+
+      - name: Print Audit Results (JSON)
+        if: always()
+        run: |
+          echo "========================================"
+          echo "  Chain Bench - CIS Benchmark Results  "
+          echo "========================================"
+          echo '${{ steps.chain-bench.outputs.chain-bench-result }}' | python3 -m json.tool || echo '${{ steps.chain-bench.outputs.chain-bench-result }}'
+
+      - name: Upload Audit Report as Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chain-bench-report
+          path: chain-bench-result.json
+          if-no-files-found: ignore
+
+      - name: Save Results to File
+        if: always()
+        run: |
+          echo '${{ steps.chain-bench.outputs.chain-bench-result }}' > chain-bench-result.json
+          echo "Results saved to chain-bench-result.json"
+
+      - name: Upload Results Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chain-bench-audit-report
+          path: chain-bench-result.json
+          retention-days: 30
