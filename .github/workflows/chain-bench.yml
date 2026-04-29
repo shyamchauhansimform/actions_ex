@@ -37,7 +37,10 @@ jobs:
           echo "========================================"
           echo "  Chain Bench - CIS Benchmark Results  "
           echo "========================================"
-          echo '${{ steps.chain-bench.outputs.chain-bench-result }}' | python3 -m json.tool || echo '${{ steps.chain-bench.outputs.chain-bench-result }}'
+          cat > /tmp/result.json << 'EOF'
+          ${{ steps.chain-bench.outputs.chain-bench-result }}
+          EOF
+          python3 -m json.tool < /tmp/result.json || cat /tmp/result.json
 
       - name: Upload Audit Report as Artifact
         if: always()
@@ -50,7 +53,9 @@ jobs:
       - name: Save Results to File
         if: always()
         run: |
-          echo '${{ steps.chain-bench.outputs.chain-bench-result }}' > chain-bench-result.json
+          cat > chain-bench-result.json << 'EOF'
+          ${{ steps.chain-bench.outputs.chain-bench-result }}
+          EOF
           echo "Results saved to chain-bench-result.json"
 
       - name: Upload Results Artifact
