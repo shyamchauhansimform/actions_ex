@@ -1,0 +1,104 @@
+name: SBOM Generation - cdxgen (CycloneDX)
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate-sbom:
+    runs-on: ubuntu-latest
+    name: Generate Software Bill of Materials (SBOM)
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Generate SBOM via cdxgen container (Python project)
+        run: |
+          docker run --rm \
+            --user root \
+            -v "$(pwd):/app" \
+            -e FETCH_LICENSE=true \
+            -e GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} \
+            ghcr.io/cyclonedx/cdxgen:latest \
+            -t python \
+            --evidence \
+            --bom-audit \
+            --spec-version 1.4 \
+            -o /app/bom.json \
+            /app
+
+      - name: Verify SBOM spec version
+        run: |
+          if [ ! -f bom.json ]; then
+            echo "ERROR: bom.json was not generated"
+            exit 1
+          fi
+          SPEC=$(python3 -c "import json; print(json.load(open('bom.json')).get('specVersion','missing'))")
+          echo "Detected specVersion: $SPEC"
+          if [[ "$SPEC" != "1.4" && "$SPEC" != "1.5" ]]; then
+            echo "ERROR: specVersion '$SPEC' is not in the expected range (1.4 or 1.5)"
+            exit 1
+          fi
+          echo "specVersion OK: $SPEC"
+
+      - name: Display SBOM Summary
+        if: always()
+        run: |
+          echo "========================================"
+          echo "        cdxgen SBOM Summary             "
+          echo "========================================"
+          if [ -f bom.json ]; then
+            echo "BOM file generated successfully"
+            echo ""
+            echo "--- Metadata ---"
+            python3 -c "
+          import json, sys
+          with open('bom.json') as f:
+              bom = json.load(f)
+          meta = bom.get('metadata', {})
+          components = bom.get('components', [])
+          vulns = bom.get('vulnerabilities', [])
+          print(f'Spec version  : {bom.get(\"specVersion\", \"N/A\")}')
+          print(f'BOM version   : {bom.get(\"version\", \"N/A\")}')
+          print(f'Components    : {len(components)}')
+          print(f'Vulnerabilities: {len(vulns)}')
+          if components:
+              print('')
+              print('--- Components ---')
+              for c in components[:20]:
+                  print(f'  {c.get(\"name\",\"?\")} @ {c.get(\"version\",\"?\")} [{c.get(\"type\",\"?\")}]')
+              if len(components) > 20:
+                  print(f'  ... and {len(components)-20} more')
+          "
+          else
+            echo "WARNING: bom.json was not generated"
+          fi
+
+      - name: Validate SBOM with cdx-validate
+        if: always()
+        run: |
+          if [ -f bom.json ]; then
+            echo "Running cdx-validate via container..."
+            docker run --rm \
+              --user root \
+              --entrypoint cdx-validate \
+              -v "$(pwd):/app" \
+              ghcr.io/cyclonedx/cdxgen:latest \
+              -i /app/bom.json || true
+          fi
+
+      - name: Upload SBOM Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx
+          path: bom.json
+          retention-days: 30
+          if-no-files-found: warn
