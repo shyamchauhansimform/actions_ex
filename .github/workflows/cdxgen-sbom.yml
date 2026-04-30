@@ -96,7 +96,7 @@ jobs:
       # -------------------------------------------------------
       - name: Scan SBOM for Vulnerabilities (Trivy)
         if: always()
-        uses: aquasecurity/trivy-action@0.30.0
+        uses: aquasecurity/trivy-action@master
         with:
           scan-type: "sbom"
           scan-ref: "bom.json"
