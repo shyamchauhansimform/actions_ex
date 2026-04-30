@@ -31,10 +31,9 @@ jobs:
       - name: Generate SBOM (Python project)
         run: |
           cdxgen -t python \
-            --profile appsec \
             --evidence \
             --bom-audit \
-            --spec-version 1.6 \
+            --spec-version 1.5 \
             -o bom.json \
             .
         env:
@@ -97,7 +96,7 @@ jobs:
       # -------------------------------------------------------
       - name: Scan SBOM for Vulnerabilities (Trivy)
         if: always()
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.30.0
         with:
           scan-type: "sbom"
           scan-ref: "bom.json"
