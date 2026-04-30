@@ -1,0 +1,90 @@
+name: SBOM Generation - cdxgen (CycloneDX)
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate-sbom:
+    runs-on: ubuntu-latest
+    name: Generate Software Bill of Materials (SBOM)
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install cdxgen
+        run: npm install -g @cyclonedx/cdxgen
+
+      - name: Generate SBOM (Python project)
+        run: |
+          cdxgen -t python \
+            --profile appsec \
+            --evidence \
+            --bom-audit \
+            -o bom.json \
+            .
+        env:
+          FETCH_LICENSE: "true"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Display SBOM Summary
+        if: always()
+        run: |
+          echo "========================================"
+          echo "        cdxgen SBOM Summary             "
+          echo "========================================"
+          if [ -f bom.json ]; then
+            echo "BOM file generated successfully"
+            echo ""
+            echo "--- Metadata ---"
+            python3 -c "
+          import json, sys
+          with open('bom.json') as f:
+              bom = json.load(f)
+          meta = bom.get('metadata', {})
+          components = bom.get('components', [])
+          vulns = bom.get('vulnerabilities', [])
+          print(f'Spec version  : {bom.get(\"specVersion\", \"N/A\")}')
+          print(f'BOM version   : {bom.get(\"version\", \"N/A\")}')
+          print(f'Components    : {len(components)}')
+          print(f'Vulnerabilities: {len(vulns)}')
+          if components:
+              print('')
+              print('--- Components ---')
+              for c in components[:20]:
+                  print(f'  {c.get(\"name\",\"?\")} @ {c.get(\"version\",\"?\")} [{c.get(\"type\",\"?\")}]')
+              if len(components) > 20:
+                  print(f'  ... and {len(components)-20} more')
+          "
+          else
+            echo "WARNING: bom.json was not generated"
+          fi
+
+      - name: Validate SBOM with cdx-validate
+        if: always()
+        run: |
+          if [ -f bom.json ]; then
+            echo "Running cdx-validate..."
+            npx --yes @cyclonedx/cdxgen cdx-validate -i bom.json || true
+          fi
+
+      - name: Upload SBOM Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx
+          path: bom.json
+          retention-days: 30
+          if-no-files-found: warn
