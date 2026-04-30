@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  security-events: write   # Required to upload SARIF results to GitHub Security tab
 
 jobs:
   generate-sbom:
@@ -88,3 +89,60 @@ jobs:
           path: bom.json
           retention-days: 30
           if-no-files-found: warn
+
+      # -------------------------------------------------------
+      # Vulnerability scan: run Trivy against the generated SBOM
+      # Results appear in GitHub → Security → Code scanning
+      # -------------------------------------------------------
+      - name: Scan SBOM for Vulnerabilities (Trivy)
+        if: always()
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "sbom"
+          scan-ref: "bom.json"
+          format: "sarif"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH,MEDIUM"
+          exit-code: "0"   # Don't fail the build; report only
+
+      - name: Upload Trivy Scan Results to GitHub Security Tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: "trivy-results.sarif"
+          category: "sbom-vulnerability-scan"
+
+      - name: Print Vulnerability Summary
+        if: always()
+        run: |
+          echo "========================================"
+          echo "      Trivy Vulnerability Summary       "
+          echo "========================================"
+          if [ -f trivy-results.sarif ]; then
+            python3 -c "
+          import json
+          with open('trivy-results.sarif') as f:
+              sarif = json.load(f)
+          results = []
+          for run in sarif.get('runs', []):
+              results.extend(run.get('results', []))
+          if not results:
+              print('No vulnerabilities found!')
+          else:
+              print(f'Total findings: {len(results)}')
+              sev = {}
+              for r in results:
+                  level = r.get('level', 'unknown')
+                  sev[level] = sev.get(level, 0) + 1
+              for level, count in sorted(sev.items()):
+                  print(f'  {level.upper()}: {count}')
+              print('')
+              print('Top findings:')
+              for r in results[:10]:
+                  rule_id = r.get('ruleId', '?')
+                  msg = r.get('message', {}).get('text', '')[:80]
+                  print(f'  [{rule_id}] {msg}')
+              if len(results) > 10:
+                  print(f'  ... and {len(results)-10} more (see GitHub Security tab)')
+          "
+          fi
