@@ -20,25 +20,33 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Install cdxgen
-        run: npm install -g @cyclonedx/cdxgen
-
-      - name: Generate SBOM (Python project)
+      - name: Generate SBOM via cdxgen container (Python project)
         run: |
-          cdxgen -t python \
+          docker run --rm \
+            -v "$(pwd):/app" \
+            -e FETCH_LICENSE=true \
+            -e GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} \
+            ghcr.io/cyclonedx/cdxgen:latest \
+            -t python \
             --evidence \
             --bom-audit \
-            --spec-version 1.5 \
-            -o bom.json \
-            .
-        env:
-          FETCH_LICENSE: "true"
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            --spec-version 1.4 \
+            -o /app/bom.json \
+            /app
+
+      - name: Verify SBOM spec version
+        run: |
+          if [ ! -f bom.json ]; then
+            echo "ERROR: bom.json was not generated"
+            exit 1
+          fi
+          SPEC=$(python3 -c "import json; print(json.load(open('bom.json')).get('specVersion','missing'))")
+          echo "Detected specVersion: $SPEC"
+          if [[ "$SPEC" != "1.4" && "$SPEC" != "1.5" ]]; then
+            echo "ERROR: specVersion '$SPEC' is not supported by Trivy (requires 1.4 or 1.5)"
+            exit 1
+          fi
+          echo "specVersion OK: $SPEC"
 
       - name: Display SBOM Summary
         if: always()
@@ -77,8 +85,11 @@ jobs:
         if: always()
         run: |
           if [ -f bom.json ]; then
-            echo "Running cdx-validate..."
-            npx --yes @cyclonedx/cdxgen cdx-validate -i bom.json || true
+            echo "Running cdx-validate via container..."
+            docker run --rm \
+              -v "$(pwd):/app" \
+              ghcr.io/cyclonedx/cdxgen:latest \
+              cdx-validate -i /app/bom.json || true
           fi
 
       - name: Upload SBOM Artifact
