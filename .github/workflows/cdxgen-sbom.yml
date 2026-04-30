@@ -34,6 +34,7 @@ jobs:
             --profile appsec \
             --evidence \
             --bom-audit \
+            --spec-version 1.6 \
             -o bom.json \
             .
         env:
