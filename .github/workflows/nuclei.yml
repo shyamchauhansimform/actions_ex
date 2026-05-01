@@ -1,0 +1,91 @@
+name: Nuclei - Vulnerability Scan
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write   # Required to upload SARIF to GitHub Security tab
+
+jobs:
+  nuclei-scan:
+    runs-on: ubuntu-latest
+    name: Nuclei DAST Scan
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Flask
+        run: pip install flask
+
+      - name: Start vulnerable demo app
+        run: |
+          nohup python vuln_app.py &
+          echo "Waiting for Flask to start..."
+          for i in $(seq 1 15); do
+            if curl -sf http://127.0.0.1:5000/ > /dev/null; then
+              echo "Flask is up!"
+              break
+            fi
+            echo "Attempt $i: not ready yet..."
+            sleep 2
+          done
+
+      - name: Run Nuclei scan
+        uses: projectdiscovery/nuclei-action@v3
+        with:
+          version: latest
+          args: >-
+            -u http://127.0.0.1:5000/
+            -tags xss,sqli,redirect,exposure,misconfig,headers
+            -severity low,medium,high,critical
+            -sarif-export nuclei-results.sarif
+            -o nuclei-results.txt
+            -stats
+            -no-color
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload SARIF to GitHub Security Tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: nuclei-results.sarif
+          category: nuclei-scan
+        continue-on-error: true
+
+      - name: Print Nuclei Summary
+        if: always()
+        run: |
+          echo "========================================"
+          echo "        Nuclei Vulnerability Summary    "
+          echo "========================================"
+          if [ -f nuclei-results.txt ]; then
+            TOTAL=$(wc -l < nuclei-results.txt)
+            echo "Total findings: $TOTAL"
+            echo ""
+            cat nuclei-results.txt
+          else
+            echo "No results file found."
+          fi
+
+      - name: Upload Nuclei Results Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuclei-report
+          path: |
+            nuclei-results.txt
+            nuclei-results.sarif
+          retention-days: 30
+          if-no-files-found: warn
