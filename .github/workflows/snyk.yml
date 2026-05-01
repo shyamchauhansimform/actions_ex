@@ -1,0 +1,62 @@
+name: Snyk - Dependency & Code Vulnerability Scan
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write   # Required to upload SARIF to GitHub Security tab
+
+jobs:
+  snyk-scan:
+    runs-on: ubuntu-latest
+    name: Snyk Security Scan
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # -------------------------------------------------------
+      # 1. Dependency vulnerability scan (Open Source)
+      #    Scans requirements.txt for known CVEs
+      # -------------------------------------------------------
+      - name: Snyk Open Source - Dependency Scan
+        uses: snyk/actions/python@master
+        continue-on-error: true   # Don't block the pipeline; report only
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=medium --sarif-file-output=snyk-oss.sarif
+
+      - name: Upload OSS Results to GitHub Security Tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: snyk-oss.sarif
+          category: snyk-open-source
+        continue-on-error: true
+
+      # -------------------------------------------------------
+      # 2. SAST - Static code analysis
+      #    Scans Python source code for security issues
+      # -------------------------------------------------------
+      - name: Snyk Code - SAST Scan
+        uses: snyk/actions/python@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          command: code test
+          args: --severity-threshold=medium --sarif-file-output=snyk-code.sarif
+
+      - name: Upload SAST Results to GitHub Security Tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: snyk-code.sarif
+          category: snyk-code
+        continue-on-error: true
