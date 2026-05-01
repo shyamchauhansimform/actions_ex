@@ -25,6 +25,12 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install project dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt --only-binary=:all: || \
+          pip install -r requirements.txt --no-build-isolation
+
       - name: Install Snyk CLI
         uses: snyk/actions/setup@master
 
@@ -56,22 +62,11 @@ jobs:
         continue-on-error: true
 
       # -------------------------------------------------------
-      # 2. SAST - Static code analysis
-      #    Scans Python source code for security issues
+      # 2. SAST - Snyk Code (requires Snyk Code enabled in org)
+      #    To enable: app.snyk.io → Settings → Snyk Code → ON
       # -------------------------------------------------------
-      - name: Snyk Code - SAST Scan
-        continue-on-error: true
-        run: |
-          snyk code test \
-            --severity-threshold=medium \
-            --sarif-file-output=snyk-code.sarif
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-
-      - name: Upload SAST Results to GitHub Security Tab
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: snyk-code.sarif
-          category: snyk-code
-        continue-on-error: true
+      # - name: Snyk Code - SAST Scan
+      #   continue-on-error: true
+      #   run: snyk code test --sarif-file-output=snyk-code.sarif
+      #   env:
+      #     SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
