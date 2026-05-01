@@ -55,7 +55,7 @@ jobs:
             --no-bugreport \
             -v 2 \
             --max-links-per-page 50 \
-            --max-depth 3 \
+            -d 3 \
             --timeout 10 \
             2>&1 | tee wapiti-report/scan.log || true
 
@@ -71,7 +71,7 @@ jobs:
             --flush-session \
             --no-bugreport \
             --max-links-per-page 50 \
-            --max-depth 3 \
+            -d 3 \
             --timeout 10 \
             2>/dev/null || true
 
