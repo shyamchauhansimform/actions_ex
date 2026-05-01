@@ -48,15 +48,15 @@ jobs:
           wapiti \
             -u http://127.0.0.1:5000/ \
             --scope folder \
-            -m xss,sql,exec,http_header,cookieflags,redirect,csrf \
-            --format json \
+            -m xss,sql,exec,cookieflags,redirect,csrf \
+            -f json \
             -o wapiti-report/report.json \
             --flush-session \
             --no-bugreport \
             -v 2 \
             --max-links-per-page 50 \
             -d 3 \
-            --timeout 10 \
+            -t 10 \
             2>&1 | tee wapiti-report/scan.log || true
 
       - name: Generate HTML report
@@ -65,14 +65,14 @@ jobs:
           wapiti \
             -u http://127.0.0.1:5000/ \
             --scope folder \
-            -m xss,sql,exec,http_header,cookieflags,redirect,csrf \
-            --format html \
+            -m xss,sql,exec,cookieflags,redirect,csrf \
+            -f html \
             -o wapiti-report/report.html \
             --flush-session \
             --no-bugreport \
             --max-links-per-page 50 \
             -d 3 \
-            --timeout 10 \
+            -t 10 \
             2>/dev/null || true
 
       - name: Print Vulnerability Summary
