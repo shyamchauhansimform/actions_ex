@@ -42,27 +42,31 @@ jobs:
             sleep 2
           done
 
-      - name: Login to app and get session
-        run: |
-          curl -c /tmp/cookies.txt -d "username=${{ vars.username }}&password=${{ vars.password }}" \
-            -X POST http://127.0.0.1:5000/login -L -o /dev/null -s
 
       - name: Run Wapiti scan
+        env:
+          TARGET_USER: ${{ secrets.WAPITI_USER }}
+          TARGET_PASS: ${{ secrets.WAPITI_PASS }}
         run: |
           mkdir -p wapiti-report
           wapiti \
-            -u http://127.0.0.1:5000/ \
-            --scope folder \
-            -m xss,sql,exec,cookieflags,redirect,csrf \
-            -f json \
-            -o wapiti-report/report.json \
-            --flush-session \
-            --no-bugreport \
-            -v 2 \
-            --max-links-per-page 50 \
-            -d 3 \
-            -t 10 \
-            2>&1 | tee wapiti-report/scan.log || true
+          -u "http://127.0.0.1:5000/" \
+          --scope folder \
+          -m xss,sql,exec,cookieflags,redirect,csrf \
+          --form-url "http://127.0.0.1:5000/login" \
+          --form-data "username=${TARGET_USER}&password=${TARGET_PASS}" \
+          --auth-user "${TARGET_USER}" \
+          --auth-password "${TARGET_PASS}" \
+          --auth-method basic \
+          --flush-session \
+          --no-bugreport \
+          -v 2 \
+          --max-links-per-page 50 \
+          -d 3 \
+          -t 10 \
+          -f json \
+          -o wapiti-report/scan.json \
+          2>&1 | tee wapiti-report/scan.log
 
       - name: Generate HTML report
         if: always()
