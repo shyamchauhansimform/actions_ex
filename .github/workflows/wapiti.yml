@@ -90,10 +90,17 @@ jobs:
           echo "========================================"
           echo "       Wapiti Vulnerability Summary     "
           echo "========================================"
-          if [ -f wapiti-report/report.json ]; then
-            python3 -c "
+          REPORT_FILE=""
+          if [ -f wapiti-report/scan.json ]; then
+            REPORT_FILE="wapiti-report/scan.json"
+          elif [ -f wapiti-report/report.json ]; then
+            REPORT_FILE="wapiti-report/report.json"
+          fi
+
+          if [ -n "$REPORT_FILE" ]; then
+            REPORT_FILE="$REPORT_FILE" python3 -c "
           import json, os
-          with open('wapiti-report/report.json') as f:
+          with open(os.environ['REPORT_FILE']) as f:
               report = json.load(f)
           vulns = report.get('vulnerabilities', {})
           total = 0
@@ -103,13 +110,12 @@ jobs:
                   print(f'  [{count}] {category}')
                   total += count
           if total == 0:
-              print('  No vulnerabilities found in JSON report.')
+              print('  No findings in JSON report.')
           else:
               print(f'  Total: {total} findings')
           "
           else
-            echo "  report.json not found, check scan.log"
-            cat wapiti-report/scan.log 2>/dev/null || true
+            echo "  No JSON report found."
           fi
 
       - name: Upload Wapiti Report
