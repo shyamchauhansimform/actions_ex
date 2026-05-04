@@ -45,8 +45,8 @@ jobs:
 
       - name: Run Wapiti scan
         env:
-          TARGET_USER: ${{ secrets.WAPITI_USER }}
-          TARGET_PASS: ${{ secrets.WAPITI_PASS }}
+          TARGET_USER: ${{ secrets.USERNAME }}
+          TARGET_PASS: ${{ secrets.PASSWORD }}
         run: |
           mkdir -p wapiti-report
           wapiti \
