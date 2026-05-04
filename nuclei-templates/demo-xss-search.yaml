@@ -1,0 +1,23 @@
+id: demo-xss-search
+info:
+  name: Reflected XSS in /search endpoint
+  author: demo
+  severity: high
+  description: The /search endpoint reflects the ?q= parameter into the HTML response without sanitization, enabling reflected XSS.
+  tags: xss,demo
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/search?q=<script>alert(1)</script>"
+
+    matchers-condition: and
+    matchers:
+      - type: word
+        part: body
+        words:
+          - "<script>alert(1)</script>"
+
+      - type: status
+        status:
+          - 200

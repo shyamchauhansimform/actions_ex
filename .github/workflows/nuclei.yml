@@ -47,7 +47,7 @@ jobs:
           version: latest
           args: >-
             -u http://127.0.0.1:5000/
-            -tags xss,sqli,redirect,exposure,misconfig,headers
+            -t nuclei-templates/
             -severity low,medium,high,critical
             -sarif-export nuclei-results.sarif
             -o nuclei-results.txt

@@ -1,0 +1,27 @@
+id: demo-sqli-user
+info:
+  name: SQL Injection in /user endpoint
+  author: demo
+  severity: critical
+  description: The /user endpoint passes the ?id= parameter directly into an SQL query without sanitization, causing SQL injection and DB error exposure.
+  tags: sqli,demo
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/user?id=1'"
+      - "{{BaseURL}}/user?id=1 OR 1=1--"
+
+    matchers-condition: or
+    matchers:
+      - type: word
+        part: body
+        words:
+          - "OperationalError"
+          - "sqlite3"
+          - "unrecognized token"
+          - "syntax error"
+
+      - type: status
+        status:
+          - 500

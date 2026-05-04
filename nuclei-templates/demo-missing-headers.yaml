@@ -1,0 +1,27 @@
+id: demo-missing-security-headers
+info:
+  name: Missing HTTP Security Headers
+  author: demo
+  severity: low
+  description: The application is missing security headers including X-Frame-Options, Content-Security-Policy, and X-Content-Type-Options.
+  tags: headers,misconfig,demo
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/"
+
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+
+      - type: word
+        part: header
+        negative: true
+        words:
+          - "X-Frame-Options"
+          - "Content-Security-Policy"
+          - "X-Content-Type-Options"
+        condition: or

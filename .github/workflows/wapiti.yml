@@ -34,7 +34,7 @@ jobs:
           nohup python vuln_app.py &
           echo "Waiting for Flask to start..."
           for i in $(seq 1 15); do
-            if curl -sf http://127.0.0.1:5000/ > /dev/null; then
+            if curl -sf http://127.0.0.1:5000/login > /dev/null; then
               echo "Flask is up!"
               break
             fi
@@ -42,22 +42,31 @@ jobs:
             sleep 2
           done
 
+
       - name: Run Wapiti scan
+        env:
+          TARGET_USER: ${{ secrets.USERNAME }}
+          TARGET_PASS: ${{ secrets.PASSWORD }}
         run: |
           mkdir -p wapiti-report
           wapiti \
-            -u http://127.0.0.1:5000/ \
-            --scope folder \
-            -m xss,sql,exec,cookieflags,redirect,csrf \
-            -f json \
-            -o wapiti-report/report.json \
-            --flush-session \
-            --no-bugreport \
-            -v 2 \
-            --max-links-per-page 50 \
-            -d 3 \
-            -t 10 \
-            2>&1 | tee wapiti-report/scan.log || true
+          -u "http://127.0.0.1:5000/" \
+          --scope folder \
+          -m xss,sql,exec,cookieflags,redirect,csrf \
+          --form-url "http://127.0.0.1:5000/login" \
+          --form-data "username=${TARGET_USER}&password=${TARGET_PASS}" \
+          --auth-user "${TARGET_USER}" \
+          --auth-password "${TARGET_PASS}" \
+          --auth-method basic \
+          --flush-session \
+          --no-bugreport \
+          -v 2 \
+          --max-links-per-page 50 \
+          -d 3 \
+          -t 10 \
+          -f json \
+          -o wapiti-report/scan.json \
+          2>&1 | tee wapiti-report/scan.log
 
       - name: Generate HTML report
         if: always()
@@ -81,10 +90,17 @@ jobs:
           echo "========================================"
           echo "       Wapiti Vulnerability Summary     "
           echo "========================================"
-          if [ -f wapiti-report/report.json ]; then
-            python3 -c "
+          REPORT_FILE=""
+          if [ -f wapiti-report/scan.json ]; then
+            REPORT_FILE="wapiti-report/scan.json"
+          elif [ -f wapiti-report/report.json ]; then
+            REPORT_FILE="wapiti-report/report.json"
+          fi
+
+          if [ -n "$REPORT_FILE" ]; then
+            REPORT_FILE="$REPORT_FILE" python3 -c "
           import json, os
-          with open('wapiti-report/report.json') as f:
+          with open(os.environ['REPORT_FILE']) as f:
               report = json.load(f)
           vulns = report.get('vulnerabilities', {})
           total = 0
@@ -94,13 +110,12 @@ jobs:
                   print(f'  [{count}] {category}')
                   total += count
           if total == 0:
-              print('  No vulnerabilities found in JSON report.')
+              print('  No findings in JSON report.')
           else:
               print(f'  Total: {total} findings')
           "
           else
-            echo "  report.json not found, check scan.log"
-            cat wapiti-report/scan.log 2>/dev/null || true
+            echo "  No JSON report found."
           fi
 
       - name: Upload Wapiti Report

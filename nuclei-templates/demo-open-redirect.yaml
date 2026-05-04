@@ -1,0 +1,23 @@
+id: demo-open-redirect
+info:
+  name: Open Redirect in /redirect endpoint
+  author: demo
+  severity: medium
+  description: The /redirect endpoint blindly redirects to any URL provided in the ?url= parameter without validation.
+  tags: redirect,demo
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/redirect?url=https://evil.example.com"
+
+    matchers-condition: and
+    matchers:
+      - type: word
+        part: header
+        words:
+          - "evil.example.com"
+
+      - type: status
+        status:
+          - 302
