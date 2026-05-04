@@ -34,13 +34,18 @@ jobs:
           nohup python vuln_app.py &
           echo "Waiting for Flask to start..."
           for i in $(seq 1 15); do
-            if curl -sf -u "${{ vars.username }}:${{ vars.password }}" http://127.0.0.1:5000/ > /dev/null; then
+            if curl -sf http://127.0.0.1:5000/login > /dev/null; then
               echo "Flask is up!"
               break
             fi
             echo "Attempt $i: not ready yet..."
             sleep 2
           done
+
+      - name: Login to app and get session
+        run: |
+          curl -c /tmp/cookies.txt -d "username=${{ vars.username }}&password=${{ vars.password }}" \
+            -X POST http://127.0.0.1:5000/login -L -o /dev/null -s
 
       - name: Run Wapiti scan
         run: |
@@ -57,9 +62,6 @@ jobs:
             --max-links-per-page 50 \
             -d 3 \
             -t 10 \
-            --basic \
-            --user "${{ vars.username }}" \
-            --password "${{ vars.password }}" \
             2>&1 | tee wapiti-report/scan.log || true
 
       - name: Generate HTML report
@@ -76,9 +78,6 @@ jobs:
             --max-links-per-page 50 \
             -d 3 \
             -t 10 \
-            --basic \
-            --user "${{ vars.username }}" \
-            --password "${{ vars.password }}" \
             2>/dev/null || true
 
       - name: Print Vulnerability Summary

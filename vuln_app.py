@@ -2,7 +2,7 @@
 Intentionally vulnerable Flask app for Wapiti DAST demo.
 DO NOT deploy this in production.
 """
-from flask import Flask, request, redirect, make_response
+from flask import Flask, request, redirect, make_response, session, render_template_string
 import subprocess
 import sqlite3
 import os
@@ -10,8 +10,9 @@ import base64
 from functools import wraps
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
 
-# ── Basic Authentication ─────────────────────────────────────────────────────
+# ── Authentication Credentials ───────────────────────────────────────────────
 VALID_USERNAME = "admin"
 VALID_PASSWORD = "pass"
 
@@ -19,21 +20,12 @@ def check_auth(username, password):
     """Verify username and password."""
     return username == VALID_USERNAME and password == VALID_PASSWORD
 
-def authenticate():
-    """Send authentication challenge."""
-    return make_response(
-        "Authentication required",
-        401,
-        {"WWW-Authenticate": 'Basic realm="Login Required"'}
-    )
-
-def require_auth(f):
-    """Decorator to require basic authentication."""
+def require_login(f):
+    """Decorator to require session-based login."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        auth = request.authorization
-        if not auth or not check_auth(auth.username, auth.password):
-            return authenticate()
+        if "user" not in session:
+            return redirect("/login")
         return f(*args, **kwargs)
     return decorated_function
 
@@ -48,10 +40,12 @@ def get_db():
 
 # ── Home: lists all demo endpoints ───────────────────────────────────────────
 @app.route("/")
+@require_login
 def index():
     return """
     <html><body>
     <h1>Vulnerable Demo App</h1>
+    <p>Welcome, <strong>{{ user }}</strong>! | <a href="/logout">Logout</a></p>
     <ul>
       <li><a href="/search?q=hello">Search (XSS)</a></li>
       <li><a href="/user?id=1">User lookup (SQLi)</a></li>
@@ -60,10 +54,49 @@ def index():
       <li><a href="/greet">Greet form (XSS via POST)</a></li>
     </ul>
     </body></html>
+    """.replace("{{ user }}", session.get("user", "User"))
+
+# ── Login Page ──────────────────────────────────────────────────────────────
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form.get("username", "")
+        password = request.form.get("password", "")
+        if check_auth(username, password):
+            session["user"] = username
+            return redirect("/")
+        else:
+            return """
+            <html><body>
+            <h2>Login</h2>
+            <form method="POST">
+              Username: <input name="username" type="text" required><br>
+              Password: <input name="password" type="password" required><br>
+              <button type="submit">Login</button>
+            </form>
+            <p style="color:red;"><strong>Invalid credentials!</strong></p>
+            <p>Demo credentials: <strong>admin / pass</strong></p>
+            </body></html>
+            """
+    return """
+    <html><body>
+    <h2>Login</h2>
+    <form method="POST">
+      Username: <input name="username" type="text" required><br>
+      Password: <input name="password" type="password" required><br>
+      <button type="submit">Login</button>
+    </form>
+    <p>Demo credentials: <strong>admin / pass</strong></p>
+    </body></html>
     """
 
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/login")
+
 # ── XSS: reflects ?q= directly into HTML without escaping ────────────────────
-@require_auth
+@require_login
 @app.route("/search")
 def search():
     q = request.args.get("q", "")
@@ -71,7 +104,7 @@ def search():
     return f"<html><body><h2>Results for: {q}</h2></body></html>"
 
 # ── SQLi: unsanitised user id passed directly into SQL query ─────────────────
-@require_auth
+@require_login
 @app.route("/user")
 def user():
     user_id = request.args.get("id", "1")
@@ -88,7 +121,7 @@ def user():
         return f"<html><body><p>Error: {e}</p></body></html>", 500
 
 # ── Command Injection: passes ?host= directly to shell ───────────────────────
-@require_auth
+@require_login
 @app.route("/ping")
 def ping():
     host = request.args.get("host", "127.0.0.1")
@@ -102,7 +135,7 @@ def ping():
         return f"<html><body><p>Error: {e}</p></body></html>", 500
 
 # ── Open Redirect: blindly redirects to any URL ──────────────────────────────
-@require_auth
+@require_login
 @app.route("/redirect")
 def open_redirect():
     url = request.args.get("url", "/")
@@ -110,7 +143,7 @@ def open_redirect():
     return redirect(url)
 
 # ── XSS via POST form: reflects name back without escaping ───────────────────
-@require_auth
+@require_login
 @app.route("/greet", methods=["GET", "POST"])
 def greet():
     if request.method == "POST":
