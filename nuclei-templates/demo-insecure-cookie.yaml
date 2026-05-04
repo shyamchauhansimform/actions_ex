@@ -1,0 +1,27 @@
+id: demo-insecure-cookie
+info:
+  name: Insecure Cookie - Missing Secure and HttpOnly Flags
+  author: demo
+  severity: medium
+  description: A session cookie is set without the Secure and HttpOnly flags, making it accessible to JavaScript and transmittable over HTTP.
+  tags: cookieflags,demo
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/"
+
+    matchers-condition: and
+    matchers:
+      - type: word
+        part: header
+        words:
+          - "Set-Cookie"
+
+      - type: word
+        part: header
+        negative: true
+        words:
+          - "HttpOnly"
+          - "Secure"
+        condition: or

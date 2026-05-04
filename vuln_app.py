@@ -6,8 +6,36 @@ from flask import Flask, request, redirect, make_response
 import subprocess
 import sqlite3
 import os
+import base64
+from functools import wraps
 
 app = Flask(__name__)
+
+# ── Basic Authentication ─────────────────────────────────────────────────────
+VALID_USERNAME = "admin"
+VALID_PASSWORD = "pass"
+
+def check_auth(username, password):
+    """Verify username and password."""
+    return username == VALID_USERNAME and password == VALID_PASSWORD
+
+def authenticate():
+    """Send authentication challenge."""
+    return make_response(
+        "Authentication required",
+        401,
+        {"WWW-Authenticate": 'Basic realm="Login Required"'}
+    )
+
+def require_auth(f):
+    """Decorator to require basic authentication."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        auth = request.authorization
+        if not auth or not check_auth(auth.username, auth.password):
+            return authenticate()
+        return f(*args, **kwargs)
+    return decorated_function
 
 # ── Bootstrap an in-memory SQLite DB with demo data ──────────────────────────
 def get_db():
@@ -35,6 +63,7 @@ def index():
     """
 
 # ── XSS: reflects ?q= directly into HTML without escaping ────────────────────
+@require_auth
 @app.route("/search")
 def search():
     q = request.args.get("q", "")
@@ -42,6 +71,7 @@ def search():
     return f"<html><body><h2>Results for: {q}</h2></body></html>"
 
 # ── SQLi: unsanitised user id passed directly into SQL query ─────────────────
+@require_auth
 @app.route("/user")
 def user():
     user_id = request.args.get("id", "1")
@@ -58,6 +88,7 @@ def user():
         return f"<html><body><p>Error: {e}</p></body></html>", 500
 
 # ── Command Injection: passes ?host= directly to shell ───────────────────────
+@require_auth
 @app.route("/ping")
 def ping():
     host = request.args.get("host", "127.0.0.1")
@@ -71,6 +102,7 @@ def ping():
         return f"<html><body><p>Error: {e}</p></body></html>", 500
 
 # ── Open Redirect: blindly redirects to any URL ──────────────────────────────
+@require_auth
 @app.route("/redirect")
 def open_redirect():
     url = request.args.get("url", "/")
@@ -78,6 +110,7 @@ def open_redirect():
     return redirect(url)
 
 # ── XSS via POST form: reflects name back without escaping ───────────────────
+@require_auth
 @app.route("/greet", methods=["GET", "POST"])
 def greet():
     if request.method == "POST":

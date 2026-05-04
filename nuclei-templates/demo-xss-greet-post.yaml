@@ -1,0 +1,28 @@
+id: demo-xss-greet-post
+info:
+  name: Reflected XSS in /greet POST endpoint
+  author: demo
+  severity: high
+  description: The /greet endpoint reflects the POST form field 'name' into the HTML response without sanitization, enabling reflected XSS via POST.
+  tags: xss,demo
+
+http:
+  - method: POST
+    path:
+      - "{{BaseURL}}/greet"
+
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+
+    body: "name=<script>alert(1)</script>"
+
+    matchers-condition: and
+    matchers:
+      - type: word
+        part: body
+        words:
+          - "<script>alert(1)</script>"
+
+      - type: status
+        status:
+          - 200
