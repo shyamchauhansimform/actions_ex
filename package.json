@@ -1,0 +1,21 @@
+{
+  "name": "security-testing-app",
+  "version": "1.0.0",
+  "description": "Intentionally vulnerable demo app for DAST and security testing",
+  "main": "vuln_app.py",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "security",
+    "dast",
+    "vulnerability",
+    "testing"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "8.50.0",
+    "prettier": "3.0.0"
+  }
+}
