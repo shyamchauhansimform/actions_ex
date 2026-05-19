@@ -1,25 +1,28 @@
-name: Secret Scanning
+name: TruffleHog Secret Scan
 
 on:
   push:
-    branches: [main, develop]
+    branches:
+      - "**"
   pull_request:
-    branches: [main]
+    branches:
+      - "**"
 
 jobs:
   trufflehog:
+    name: Detect Secrets with TruffleHog
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Full history for comprehensive scanning
 
       - name: Run TruffleHog
-        run: |
-          docker run --rm -v "${{ github.workspace }}:/pwd" \
-            trufflesecurity/trufflehog:latest \
-            filesystem /pwd \
-            --results=verified,unverified \
-            --no-update \
-            --fail  # ← this makes the job FAIL and blocks the PR
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ""  # Git empty tree SHA — scans full history
+          head: HEAD
+          extra_args: --debug
