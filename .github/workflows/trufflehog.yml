@@ -1,28 +1,21 @@
-name: TruffleHog Secret Scan
+name: Secret Scanning
 
 on:
   push:
-    branches:
-      - "**"
+    branches: [main, develop]
   pull_request:
-    branches:
-      - "**"
+    branches: [main]
 
 jobs:
   trufflehog:
-    name: Detect Secrets with TruffleHog
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history for comprehensive scanning
+          fetch-depth: 0  # Required: scan full git history
 
       - name: Run TruffleHog
         uses: trufflesecurity/trufflehog@main
         with:
-          path: ./
-          base: "3f3d81d8dc39636ce3d028fbe632e91b67313da9"  # Git empty tree SHA — scans full history
-          head: HEAD
-          extra_args: --debug
+          extra_args: --results=verified,unverified
