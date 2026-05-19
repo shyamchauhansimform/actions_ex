@@ -13,9 +13,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Required: scan full git history
+          fetch-depth: 0
 
       - name: Run TruffleHog
-        uses: trufflesecurity/trufflehog@main
-        with:
-          extra_args: --results=verified,unverified
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/pwd" \
+            trufflesecurity/trufflehog:latest \
+            filesystem /pwd \
+            --results=verified,unverified \
+            --no-update \
+            --fail  # ← this makes the job FAIL and blocks the PR
