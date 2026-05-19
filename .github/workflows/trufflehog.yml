@@ -1,0 +1,45 @@
+name: TruffleHog Secret Scan
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  # # ⚡ Fast scan on every push/PR - all commits from beginning
+  # trufflehog-diff:
+  #   name: Scan All Commits
+  #   runs-on: ubuntu-latest
+  #   if: github.event_name == 'push' || github.event_name == 'pull_request'
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
+
+  #     - name: Run TruffleHog
+  #       uses: trufflesecurity/trufflehog@main
+  #       with:
+  #         path: ./
+  #         base: ""        # ← scans full history, no extra step needed
+  #         head: HEAD
+  #         extra_args: --results=verified,unverified --fail
+
+  # 🔍 Full filesystem scan every Sunday
+  trufflehog-full:
+    name: Full Repo Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run TruffleHog (filesystem)
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/pwd" \
+            trufflesecurity/trufflehog:latest \
+            filesystem /pwd \
+            --results=verified,unverified \
+            --no-update 
