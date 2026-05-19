@@ -23,6 +23,6 @@ jobs:
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
-          base: "4b825dc642cb6eb9a060e54bf8d69288fbee4904"  # Git empty tree SHA — scans full history
+          base: "3f3d81d8dc39636ce3d028fbe632e91b67313da9"  # Git empty tree SHA — scans full history
           head: HEAD
           extra_args: --debug
