@@ -28,9 +28,8 @@ jobs:
 
   # 🔍 Full filesystem scan every Sunday
   trufflehog-full:
-    name: Full Repo Scan (Scheduled)
+    name: Full Repo Scan
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
