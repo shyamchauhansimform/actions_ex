@@ -1,5 +1,5 @@
 name: Gitleaks Secret Scan
-
+# Secret Detection
 on:
   push:
     branches:

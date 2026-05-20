@@ -1,5 +1,5 @@
 name: Snyk - Dependency & Code Vulnerability Scan
-
+# Dependency management
 on:
   push:
     branches: ["main", "develop"]

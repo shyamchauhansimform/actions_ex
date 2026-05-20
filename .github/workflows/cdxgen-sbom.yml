@@ -1,5 +1,5 @@
 name: SBOM Generation - cdxgen (CycloneDX)
-
+# Dependency management
 on:
   push:
     branches: ["main", "develop"]

@@ -1,5 +1,5 @@
 name: SonarCloud Code Analysis
-
+# static code analysis and code quality checks
 on:
   push:
     branches:

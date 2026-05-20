@@ -1,5 +1,5 @@
 name: Wapiti - DAST Web Vulnerability Scan
-
+# Dynamic Application Security Testing (DAST) for web vulnerabilities
 on:
   push:
     branches: ["main", "develop"]
