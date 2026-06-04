@@ -1,0 +1,73 @@
+name: SBOM Generation and Dependency Vulnerability Scan
+
+on:
+  schedule:
+    - cron: '0 8 * * *'
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  syft-grype-scan:
+    name: SBOM Generation (Syft) + Vulnerability Scan (Grype)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Required to upload SARIF results to the GitHub Security tab
+      security-events: write
+
+    steps:
+      # ── 1. Checkout so Syft can walk the full source tree ──────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Generate SBOM with Syft ─────────────────────────────────────────
+      #       CycloneDX JSON is the format Grype natively consumes
+      - name: Generate SBOM with Syft
+        uses: anchore/syft-action@v2
+        with:
+          path: "."
+          format: "cyclonedx-json"
+          output-file: "sbom.cyclonedx.json"
+
+      # ── 3. Upload SBOM so it can be audited or consumed by downstream tools ─
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ github.run_number }}
+          path: sbom.cyclonedx.json
+          retention-days: 30
+
+      # ── 4. Scan the SBOM with Grype ────────────────────────────────────────
+      #       fail-build: false — report without blocking the pipeline
+      #       severity-cutoff: high — only flag High and Critical findings
+      - name: Scan SBOM with Grype
+        id: grype
+        uses: anchore/scan-action@v4
+        with:
+          sbom: "sbom.cyclonedx.json"
+          fail-build: false
+          severity-cutoff: "high"
+          output-format: "sarif"
+
+      # ── 5. Surface findings in the GitHub Security tab ─────────────────────
+      - name: Upload Grype SARIF to GitHub Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.grype.outputs.sarif }}
+
+      # ── 6. Keep raw SARIF as a downloadable artifact ───────────────────────
+      - name: Upload Grype SARIF artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: grype-sarif-${{ github.run_number }}
+          path: ${{ steps.grype.outputs.sarif }}
+          if-no-files-found: ignore
+          retention-days: 30
