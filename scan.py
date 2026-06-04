@@ -282,6 +282,8 @@ def fetch_vuln_details(vuln_entry):
         refs      = [r["url"] for r in v.get("references", [])]
         severity  = v.get("database_specific", {}).get("severity") or \
                     (v.get("severity") or [{}])[0].get("type", "UNKNOWN")
+        if severity.upper() == "MODERATE":
+            severity = "MEDIUM"
         cvss      = (v.get("severity") or [{}])[0].get("score")
 
         details.append({
@@ -446,7 +448,6 @@ def write_gha_summary(all_vulns, repo):
             ("CRITICAL", "🔴 Critical"),
             ("HIGH",     "🟠 High"),
             ("MEDIUM",   "🟡 Medium"),
-            ("MODERATE", "🟡 Moderate"),
             ("LOW",      "🟢 Low"),
             ("UNKNOWN",  "⚪ Unknown"),
         ]
