@@ -17,7 +17,11 @@ GITHUB_TOKEN   = os.environ["GITHUB_TOKEN"]
 TEAMS_WEBHOOK  = os.environ["TEAMS_WEBHOOK_URL"]
 REPO_OWNER     = os.environ["GITHUB_REPOSITORY"].split("/")[0]
 REPO_NAME      = os.environ["GITHUB_REPOSITORY"].split("/")[1]
-REPO_BRANCH    = os.environ["GITHUB_REF_NAME"]
+# GITHUB_REF_NAME is "14/merge" on pull_request events — not a valid git-trees ref.
+# GITHUB_HEAD_REF holds the real source branch name on PRs; empty on push/schedule.
+# GITHUB_SHA is always a valid commit SHA across all trigger types.
+REPO_BRANCH    = os.environ.get("GITHUB_HEAD_REF") or os.environ["GITHUB_REF_NAME"]
+REPO_SHA       = os.environ["GITHUB_SHA"]
 
 # ── Manifest filenames to look for ────────────────────────────────────────────
 PACKAGE_FILES = {
@@ -93,7 +97,7 @@ def http_get_raw(url, headers=None):
 # ── Step 1: List all files in the repo tree ───────────────────────────────────
 def list_repo_files():
     print(f"📂 Listing files in {REPO_OWNER}/{REPO_NAME}@{REPO_BRANCH} ...")
-    url = f"{GITHUB_API}/repos/{REPO_OWNER}/{REPO_NAME}/git/trees/{REPO_BRANCH}?recursive=1"
+    url = f"{GITHUB_API}/repos/{REPO_OWNER}/{REPO_NAME}/git/trees/{REPO_SHA}?recursive=1"
     headers = {
         "Authorization": f"Bearer {GITHUB_TOKEN}",
         "Accept": "application/vnd.github+json",
@@ -115,7 +119,7 @@ def filter_manifests(tree):
                 "name":      filename,
                 "path":      item["path"],
                 "ecosystem": PACKAGE_FILES[filename],
-                "raw_url":   f"https://raw.githubusercontent.com/{REPO_OWNER}/{REPO_NAME}/{REPO_BRANCH}/{item['path']}",
+                "raw_url":   f"https://raw.githubusercontent.com/{REPO_OWNER}/{REPO_NAME}/{REPO_SHA}/{item['path']}",
             })
     print(f"📄 Found {len(found)} manifest file(s): {[f['path'] for f in found]}")
     return found

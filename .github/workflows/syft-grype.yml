@@ -26,16 +26,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. Generate SBOM with Syft ─────────────────────────────────────────
-      #       CycloneDX JSON is the format Grype natively consumes
-      - name: Generate SBOM with Syft
-        uses: anchore/syft-action@v2
-        with:
-          path: "."
-          format: "cyclonedx-json"
-          output-file: "sbom.cyclonedx.json"
+      # ── 2. Install Syft via official install script ────────────────────────
+      - name: Install Syft
+        run: curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
 
-      # ── 3. Upload SBOM so it can be audited or consumed by downstream tools ─
+      # ── 3. Generate SBOM — CycloneDX JSON is the format Grype natively reads
+      - name: Generate SBOM with Syft
+        run: syft . -o cyclonedx-json=sbom.cyclonedx.json
+
+      # ── 4. Upload SBOM so it can be audited or consumed by downstream tools ─
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v4
         with:
@@ -43,31 +42,27 @@ jobs:
           path: sbom.cyclonedx.json
           retention-days: 30
 
-      # ── 4. Scan the SBOM with Grype ────────────────────────────────────────
-      #       fail-build: false — report without blocking the pipeline
-      #       severity-cutoff: high — only flag High and Critical findings
-      - name: Scan SBOM with Grype
-        id: grype
-        uses: anchore/scan-action@v4
-        with:
-          sbom: "sbom.cyclonedx.json"
-          fail-build: false
-          severity-cutoff: "high"
-          output-format: "sarif"
+      # ── 5. Install Grype via official install script ───────────────────────
+      - name: Install Grype
+        run: curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
 
-      # ── 5. Surface findings in the GitHub Security tab ─────────────────────
+      # ── 6. Scan the SBOM — exit 0 so the pipeline never blocks on findings ─
+      - name: Scan SBOM with Grype
+        run: grype sbom:sbom.cyclonedx.json -o sarif > grype-results.sarif; true
+
+      # ── 7. Surface findings in the GitHub Security tab ─────────────────────
       - name: Upload Grype SARIF to GitHub Security tab
         if: always()
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: ${{ steps.grype.outputs.sarif }}
+          sarif_file: grype-results.sarif
 
-      # ── 6. Keep raw SARIF as a downloadable artifact ───────────────────────
+      # ── 8. Keep raw SARIF as a downloadable artifact ───────────────────────
       - name: Upload Grype SARIF artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: grype-sarif-${{ github.run_number }}
-          path: ${{ steps.grype.outputs.sarif }}
+          path: grype-results.sarif
           if-no-files-found: ignore
           retention-days: 30
