@@ -568,7 +568,11 @@ def main():
     # 10. GHA summary
     write_gha_summary(all_vulns, repo)
 
-    # 11. Fail build on CRITICAL/HIGH
+    # 11. Write raw results so the upload-artifact step always has a file
+    with open("scan_results.json", "w") as f:
+        json.dump(all_vulns, f, indent=2)
+
+    # 12. Fail build on CRITICAL/HIGH
     sys.exit(check_fail_threshold(all_vulns))
 
 
