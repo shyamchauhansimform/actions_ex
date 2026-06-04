@@ -1,0 +1,64 @@
+name: SLSA Provenance Generation
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+# SLSA generic generator requires read-all at top level
+permissions: read-all
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      hashes: ${{ steps.hash.outputs.hashes }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build source archive
+        run: |
+          mkdir -p dist
+          tar -czf dist/source.tar.gz \
+            --exclude='.git' \
+            --exclude='dist' \
+            --exclude='__pycache__' \
+            --exclude='*.pyc' \
+            .
+
+      - name: Generate artifact hashes (SHA-256)
+        id: hash
+        run: |
+          cd dist
+          echo "hashes=$(sha256sum * | base64 -w0)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: dist/
+
+  # SLSA Build Level 3 provenance via the slsa-github-generator reusable workflow.
+  # This runs in a separate, isolated job to meet SLSA L3 isolation requirements.
+  provenance:
+    needs: [build]
+    permissions:
+      actions: read      # required to read workflow run info
+      id-token: write    # required to sign the provenance
+      contents: write    # required to upload provenance to the release
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
+    with:
+      base64-subjects: "${{ needs.build.outputs.hashes }}"
+      upload-assets: false   # set to true on tag-based releases to attach to GitHub Release
