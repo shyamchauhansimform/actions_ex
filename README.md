@@ -65,6 +65,7 @@ An intentionally vulnerable demo application used to showcase a comprehensive **
 |------|------|---------|
 | [Chain Bench](https://github.com/aquasecurity/chain-bench) | `chain-bench.yml` | CIS Software Supply Chain Benchmark audit of the GitHub org/repo |
 | [cdxgen](https://github.com/CycloneDX/cdxgen) | `cdxgen-sbom.yml` | Generates a CycloneDX SBOM (Software Bill of Materials) |
+| [SLSA](https://github.com/slsa-framework/slsa) | `slsa.yml` | SLSA Build Level 3 provenance attestation for build artifacts |
 
 ---
 
@@ -105,6 +106,7 @@ Push / PR
     ├── Retire.js           (SCA — JS library CVEs)
     ├── cdxgen              (SBOM — CycloneDX)
     ├── Chain Bench         (supply chain — CIS benchmark)
+    ├── SLSA                (supply chain — SLSA Build L3 provenance)
     ├── Wapiti              (DAST — black-box web scan)
     └── Nuclei              (DAST — template-based scan)
 ```
