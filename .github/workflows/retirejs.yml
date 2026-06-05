@@ -1,0 +1,49 @@
+name: Retire.js Vulnerability Scan
+# expired JS library detection
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    branches:
+      - "**"
+  workflow_dispatch:
+
+jobs:
+  retirejs:
+    name: Scan JS Dependencies with Retire.js
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Retire.js
+        run: npm install -g retire
+
+      - name: Run Retire.js scan
+        run: |
+          retire --path . --outputformat json --outputpath retire-results.json || true
+
+      - name: Print Retire.js results
+        run: |
+          if [ -f retire-results.json ]; then
+            cat retire-results.json
+          else
+            echo "No results file found"
+          fi
+
+      - name: Upload Retire.js results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: retirejs-results
+          path: retire-results.json
