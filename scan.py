@@ -313,7 +313,7 @@ def severity_order(s):
     return {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}.get(s, 4)
 
 
-def build_teams_card(all_vulns, repo):
+def build_teams_card(all_vulns, repo, run_url=None):
     if not all_vulns:
         # Clean bill of health card
         return {
@@ -335,33 +335,9 @@ def build_teams_card(all_vulns, repo):
             }]
         }
 
-    sorted_vulns = sorted(all_vulns, key=lambda v: severity_order(v["severity"]))
-
     counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "UNKNOWN": 0}
     for v in all_vulns:
         counts[v["severity"]] = counts.get(v["severity"], 0) + 1
-
-    # Top 10 findings block
-    finding_blocks = []
-    for v in sorted_vulns[:10]:
-        emoji   = SEV_EMOJI.get(v["severity"], "⚪")
-        fix_txt = f"Fix available → `{v['fixed_in'][0]}`" if v["fix_available"] else "⛔ No fix yet"
-        cve_aliases = ", ".join(v["aliases"][:2]) if v["aliases"] else ""
-
-        finding_blocks.append({
-            "type": "Container",
-            "separator": True,
-            "items": [
-                {"type": "TextBlock",
-                 "text": f"{emoji} **{v['package']}** `{v['version']}` — {v['vuln_id']}" +
-                         (f" ({cve_aliases})" if cve_aliases else ""),
-                 "wrap": True, "weight": "Bolder"},
-                {"type": "TextBlock",
-                 "text": v["summary"] or "No summary available.",
-                 "wrap": True, "size": "Small", "isSubtle": True},
-                {"type": "TextBlock", "text": fix_txt, "wrap": True, "size": "Small"},
-            ]
-        })
 
     card = {
         "type": "message",
@@ -383,15 +359,17 @@ def build_teams_card(all_vulns, repo):
                         {"title": "🟡 Medium",    "value": str(counts.get("MEDIUM", 0))},
                         {"title": "🟢 Low",       "value": str(counts.get("LOW", 0))},
                     ]},
-                    {"type": "TextBlock", "text": "Top Findings",
-                     "weight": "Bolder", "size": "Medium", "separator": True},
-                    *finding_blocks,
                 ],
                 "actions": [
                     {"type": "Action.OpenUrl", "title": "View on OSV.dev",
                      "url": "https://osv.dev"},
                     {"type": "Action.OpenUrl", "title": "View Repository",
                      "url": f"https://github.com/{repo}"},
+                    *(
+                        [{"type": "Action.OpenUrl", "title": "📋 Full Report",
+                          "url": run_url}]
+                        if run_url else []
+                    ),
                 ]
             }
         }]
@@ -514,7 +492,11 @@ def check_fail_threshold(all_vulns):
 
 # ── Main ───────────────────────────────────────────────────────────────────────
 def main():
-    repo = f"{REPO_OWNER}/{REPO_NAME}"
+    repo    = f"{REPO_OWNER}/{REPO_NAME}"
+    run_url = (
+        f"{os.environ.get('GITHUB_SERVER_URL', 'https://github.com')}"
+        f"/{repo}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
+    ) if os.environ.get("GITHUB_RUN_ID") else None
     print(f"🚀 Starting vulnerability scan for {repo}\n{'─'*50}")
 
     # 1. List repo files
@@ -524,7 +506,7 @@ def main():
     manifests = filter_manifests(tree)
     if not manifests:
         print("⚠️  No package manifest files found. Exiting cleanly.")
-        send_teams_alert(build_teams_card([], repo))
+        send_teams_alert(build_teams_card([], repo, run_url))
         write_gha_summary([], repo)
         return
 
@@ -563,7 +545,7 @@ def main():
     print(f"\n📊 Total enriched CVEs: {len(all_vulns)}")
 
     # 8+9. Build card and alert Teams
-    card = build_teams_card(all_vulns, repo)
+    card = build_teams_card(all_vulns, repo, run_url)
     send_teams_alert(card)
 
     # 10. GHA summary
