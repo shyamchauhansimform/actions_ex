@@ -14,7 +14,7 @@ from pathlib import Path
 
 # ── Config from env ────────────────────────────────────────────────────────────
 GITHUB_TOKEN   = os.environ["GITHUB_TOKEN"]
-TEAMS_WEBHOOK  = os.environ["TEAMS_WEBHOOK_URL"]
+TEAMS_WEBHOOK  = os.environ.get("TEAMS_WEBHOOK_URL")
 REPO_OWNER     = os.environ["GITHUB_REPOSITORY"].split("/")[0]
 REPO_NAME      = os.environ["GITHUB_REPOSITORY"].split("/")[1]
 # GITHUB_REF_NAME is "14/merge" on pull_request events — not a valid git-trees ref.
@@ -379,6 +379,9 @@ def build_teams_card(all_vulns, repo, run_url=None):
 
 # ── Step 9: Send to Teams ──────────────────────────────────────────────────────
 def send_teams_alert(card):
+    if not TEAMS_WEBHOOK:
+        print("\n⏭️  TEAMS_WEBHOOK_URL not set — skipping Teams notification.")
+        return
     print("\n📣 Sending Teams alert ...")
     try:
         data = json.dumps(card).encode()

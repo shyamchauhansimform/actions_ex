@@ -1,9 +1,9 @@
 name: Keepalive
 
-on:
-  schedule:
-    - cron: '0 8 * * 0'   # Every Sunday at 8 AM UTC (well within 60-day window)
-  workflow_dispatch:
+# on:
+#   schedule:
+#     - cron: '0 8 * * 0'   # Every Sunday at 8 AM UTC (well within 60-day window)
+  # workflow_dispatch:
 
 permissions:
   actions: write
