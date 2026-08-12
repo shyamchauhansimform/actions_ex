@@ -1,0 +1,42 @@
+name: ClusterFuzzLite PR Fuzzing
+# OSS-Fuzz's CI-embeddable fuzzing (Atheris) against the changed code
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "vuln_app.py"
+      - ".clusterfuzzlite/**"
+      - ".github/workflows/cflite_pr.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  PR:
+    runs-on: ubuntu-latest
+    name: ClusterFuzzLite PR Fuzzing
+    steps:
+      - name: Build Fuzzers
+        id: build
+        uses: google/clusterfuzzlite/actions/build_fuzzers@v1
+        with:
+          language: python
+
+      - name: Run Fuzzers
+        id: run
+        uses: google/clusterfuzzlite/actions/run_fuzzers@v1
+        with:
+          fuzz-seconds: 300
+          mode: "code-change"
+          output-sarif: true
+
+      - name: Upload Crash Artifacts
+        if: failure() && steps.build.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cflite-pr-artifacts
+          path: ./out/artifacts
+          retention-days: 30
+          if-no-files-found: ignore

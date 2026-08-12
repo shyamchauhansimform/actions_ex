@@ -1,0 +1,36 @@
+name: ClusterFuzzLite Batch Fuzzing
+# Longer, continuous-style fuzzing run (the OSS-Fuzz model), on a schedule
+# on:
+#   schedule:
+#     - cron: "0 3 * * *" # daily at 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  Fuzzing:
+    runs-on: ubuntu-latest
+    name: ClusterFuzzLite Batch Fuzzing
+    steps:
+      - name: Build Fuzzers
+        id: build
+        uses: google/clusterfuzzlite/actions/build_fuzzers@v1
+        with:
+          language: python
+
+      - name: Run Fuzzers
+        id: run
+        uses: google/clusterfuzzlite/actions/run_fuzzers@v1
+        with:
+          fuzz-seconds: 600
+          mode: "batch"
+
+      - name: Upload Crash Artifacts
+        if: failure() && steps.build.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cflite-batch-artifacts
+          path: ./out/artifacts
+          retention-days: 30
+          if-no-files-found: ignore

@@ -2,30 +2,24 @@ name: Keepalive
 
 # on:
 #   schedule:
-#     - cron: '0 8 * * 0'   # Every Sunday at 8 AM UTC (well within 60-day window)
-  # workflow_dispatch:
+#     - cron: '0 8 1 * *'   # 1st of every month — well within the 60-day window
+#   workflow_dispatch:
 
 permissions:
-  actions: write
+  contents: write   # needed to push the keepalive commit
 
 jobs:
   keepalive:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/github-script@v7
-        with:
-          script: |
-            const workflows = await github.rest.actions.listRepoWorkflows({
-              owner: context.repo.owner,
-              repo:  context.repo.repo,
-            });
-            for (const wf of workflows.data.workflows) {
-              if (wf.state === 'disabled_inactivity') {
-                await github.rest.actions.enableWorkflow({
-                  owner:       context.repo.owner,
-                  repo:        context.repo.repo,
-                  workflow_id: wf.id,
-                });
-                console.log(`Re-enabled: ${wf.name}`);
-              }
-            }
+      - uses: actions/checkout@v4
+
+      - name: Commit keepalive timestamp
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          date -u > .github/keepalive
+          git add .github/keepalive
+          git diff --cached --quiet && echo "Nothing to commit" && exit 0
+          git commit -m "chore: keepalive [skip ci]"
+          git push
