@@ -1,13 +1,13 @@
 name: Chain Bench - Supply Chain Security Audit
-
+# Supply Chain management
 on:
   push:
     branches: ["main", "develop"]
   pull_request:
     branches: ["main"]
-  schedule:
-    # Run every Monday at 08:00 UTC for regular compliance checks
-    - cron: "0 8 * * 1"
+  # schedule:
+  #   # Run every Monday at 08:00 UTC for regular compliance checks
+  #   - cron: "0 8 * * 1"
   workflow_dispatch:
 
 permissions:

@@ -38,6 +38,16 @@ def get_db():
     conn.commit()
     return conn
 
+# ── Pure input-builders (extracted so they can be fuzz-tested directly) ──────
+# ⚠️ VULNERABLE: no sanitisation — kept unsanitised on purpose for DAST/fuzz demos
+def build_user_query(user_id):
+    """Build the SQL query used by /user. Unsanitised string interpolation."""
+    return f"SELECT * FROM users WHERE id = {user_id}"
+
+def build_ping_command(host):
+    """Build the shell command used by /ping. Unsanitised string interpolation."""
+    return f"echo Pinging {host}"
+
 # ── Home: lists all demo endpoints ───────────────────────────────────────────
 @app.route("/")
 @require_login
@@ -111,7 +121,7 @@ def user():
     conn = get_db()
     try:
         # ⚠️ VULNERABLE: string interpolation in SQL
-        cursor = conn.execute(f"SELECT * FROM users WHERE id = {user_id}")
+        cursor = conn.execute(build_user_query(user_id))
         row = cursor.fetchone()
         if row:
             return f"<html><body><p>User: {row[1]} Role: {row[2]}</p></body></html>"
@@ -128,7 +138,7 @@ def ping():
     try:
         # ⚠️ VULNERABLE: shell=True with unsanitised input
         result = subprocess.check_output(
-            f"echo Pinging {host}", shell=True, text=True, timeout=3
+            build_ping_command(host), shell=True, text=True, timeout=3
         )
         return f"<html><body><pre>{result}</pre></body></html>"
     except Exception as e:
